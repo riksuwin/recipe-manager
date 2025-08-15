@@ -1,131 +1,81 @@
+// Capitalize first letter helper
+const capitalizeFirst = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1);
 import { useState } from "react";
 import type { Recipe } from "../types/recipe";
 
 interface Props {
-  onAdd: (recipe: Recipe) => void;
+  recipe: Recipe;
+  onChange: (r: Recipe) => void;
+  onCancel: () => void;
+  onSave: (r: Recipe) => void;
 }
 
-export default function RecipeForm({ onAdd }: Props) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [instructions, setInstructions] = useState<string[]>([]);
-  const [instructionInput, setInstructionInput] = useState("");
+export default function EditRecipeForm({
+  recipe,
+  onChange,
+  onCancel,
+  onSave,
+}: Props) {
+  // Instructions state
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState("");
-  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [instructionInput, setInstructionInput] = useState("");
+  const [instructions, setInstructions] = useState<string[]>(
+    recipe.instructions
+  );
+  // Ingredients state (interactive)
+  const [ingredients, setIngredients] = useState<string[]>(recipe.ingredients);
   const [ingredientInput, setIngredientInput] = useState("");
-  // New local editing state for ingredients
   const [ingEditingIdx, setIngEditingIdx] = useState<number | null>(null);
   const [ingEditingValue, setIngEditingValue] = useState("");
-  // Error state
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Validation
-    if (!title.trim()) {
-      setError("Dish name is required.");
-      return;
-    }
-    if (!description.trim()) {
-      setError("Description is required.");
-      return;
-    }
-    if (ingredients.length === 0) {
-      setError("At least one ingredient is required.");
-      return;
-    }
-    if (instructions.length === 0) {
-      setError("At least one instruction is required.");
-      return;
-    }
-
-    setError(null);
-    const newRecipe: Recipe = {
-      id: Date.now(),
-      title,
-      description,
-      ingredients,
-      instructions,
-    };
-
-    onAdd(newRecipe);
-    setTitle("");
-    setDescription("");
-    setInstructions([]);
-    setInstructionInput("");
-    setIngredients([]);
-    setIngredientInput("");
+  // Sync local instructions/ingredients with parent on change
+  const updateInstructions = (newInstructions: string[]) => {
+    setInstructions(newInstructions);
+    onChange({ ...recipe, instructions: newInstructions });
   };
-  const capitalizeFirst = (str: string) =>
-    str.charAt(0).toUpperCase() + str.slice(1);
-  const handleIngredientKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (e.key === "Enter" && ingredientInput.trim()) {
-      e.preventDefault();
-      const formatted = capitalizeFirst(ingredientInput.trim());
-      setIngredients((prev) => [...prev, formatted]);
-      setIngredientInput("");
-    }
-  };
-
-  const formatInstruction = (str: string) => {
-    let s = str.trim();
-    if (!s) return "";
-    s = capitalizeFirst(s);
-    if (!/[.!?]$/.test(s)) s += ".";
-    return s;
-  };
-  const handleInstructionKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (e.key === "Enter" && instructionInput.trim()) {
-      e.preventDefault();
-      const formatted = formatInstruction(instructionInput);
-      setInstructions((prev) => [...prev, formatted]);
-      setInstructionInput("");
-    }
+  const updateIngredients = (newIngredients: string[]) => {
+    setIngredients(newIngredients);
+    onChange({ ...recipe, ingredients: newIngredients });
   };
 
   return (
     <form
-      onSubmit={handleSubmit}
-      className="bg-gray-100 p-4 rounded-lg shadow mb-4"
+      className="space-y-2 mt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({ ...recipe, instructions });
+      }}
     >
-      <h2 className="text-lg font-bold mb-2">Add New Recipe</h2>
-      {error && (
-        <div className="bg-red-100 text-red-700 px-3 py-2 mb-3 rounded border border-red-300">
-          {error}
-        </div>
-      )}
       <label className="block mb-1 font-medium">Dish Name</label>
       <input
-        className="border p-2 w-full mb-2 rounded"
-        placeholder="e.g. Adobong Manok, Sinigang na Baboy"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        className="border p-2 w-full rounded"
+        value={recipe.title}
+        onChange={(e) => onChange({ ...recipe, title: e.target.value })}
+        required
       />
       <label className="block mb-1 font-medium">Description</label>
       <textarea
-        className="border p-2 w-full mb-2 rounded resize-y min-h-[40px] max-h-40 overflow-auto"
-        placeholder="What is dish about?"
-        value={description}
-        maxLength={250}
-        onChange={(e) => {
-          if (e.target.value.length <= 250) setDescription(e.target.value);
-        }}
+        className="border p-2 w-full mb-2 rounded resize-y min-h-[40px] max-h-30 overflow-auto"
+        value={recipe.description}
+        onChange={(e) => onChange({ ...recipe, description: e.target.value })}
+        required
       />
-      <div className="text-right text-xs text-gray-500 mb-2">
-        {description.length}/250
-      </div>
       <label className="block mb-1 font-medium">Ingredients</label>
       <input
         className="border p-2 w-full mb-2 rounded"
         placeholder="Add an ingredient and press Enter"
         value={ingredientInput}
         onChange={(e) => setIngredientInput(e.target.value)}
-        onKeyDown={handleIngredientKeyDown}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && ingredientInput.trim()) {
+            e.preventDefault();
+            const formatted = capitalizeFirst(ingredientInput.trim());
+            updateIngredients([...ingredients, formatted]);
+            setIngredientInput("");
+          }
+        }}
       />
       {ingredients.length > 0 && (
         <ul className="list-none mb-2 text-gray-700 border border-gray-300 rounded p-3 bg-white max-h-28 overflow-y-auto">
@@ -142,7 +92,7 @@ export default function RecipeForm({ onAdd }: Props) {
                     onChange={(e) => setIngEditingValue(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && ingEditingValue.trim()) {
-                        setIngredients(
+                        updateIngredients(
                           ingredients.map((v, i) =>
                             i === idx ? ingEditingValue.trim() : v
                           )
@@ -159,9 +109,10 @@ export default function RecipeForm({ onAdd }: Props) {
                   <button
                     className="ml-1 text-green-600 hover:text-green-800"
                     title="Save"
+                    type="button"
                     onClick={() => {
                       if (ingEditingValue.trim()) {
-                        setIngredients(
+                        updateIngredients(
                           ingredients.map((v, i) =>
                             i === idx ? ingEditingValue.trim() : v
                           )
@@ -176,6 +127,7 @@ export default function RecipeForm({ onAdd }: Props) {
                   <button
                     className="ml-1 text-gray-500 hover:text-gray-700"
                     title="Cancel"
+                    type="button"
                     onClick={() => {
                       setIngEditingIdx(null);
                       setIngEditingValue("");
@@ -216,7 +168,9 @@ export default function RecipeForm({ onAdd }: Props) {
                       title="Remove"
                       type="button"
                       onClick={() =>
-                        setIngredients(ingredients.filter((_, i) => i !== idx))
+                        updateIngredients(
+                          ingredients.filter((_, i) => i !== idx)
+                        )
                       }
                     >
                       <svg
@@ -246,10 +200,16 @@ export default function RecipeForm({ onAdd }: Props) {
         placeholder="Add an instruction and press `Enter`"
         value={instructionInput}
         onChange={(e) => setInstructionInput(e.target.value)}
-        onKeyDown={handleInstructionKeyDown}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && instructionInput.trim()) {
+            e.preventDefault();
+            updateInstructions([...instructions, instructionInput.trim()]);
+            setInstructionInput("");
+          }
+        }}
       />
       {instructions.length > 0 && (
-        <ul className="list-none mb-2 text-gray-700 border border-gray-300 rounded p-3 bg-white max-h-38 overflow-y-auto">
+        <ul className="list-none mb-2 text-gray-700 border border-gray-300 rounded p-3 bg-white max-h-48 overflow-y-auto">
           {instructions.map((inst, idx) => (
             <li
               key={idx}
@@ -263,7 +223,7 @@ export default function RecipeForm({ onAdd }: Props) {
                     onChange={(e) => setEditingValue(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && editingValue.trim()) {
-                        setInstructions(
+                        updateInstructions(
                           instructions.map((v, i) =>
                             i === idx ? editingValue.trim() : v
                           )
@@ -280,9 +240,10 @@ export default function RecipeForm({ onAdd }: Props) {
                   <button
                     className="ml-1 text-green-600 hover:text-green-800"
                     title="Save"
+                    type="button"
                     onClick={() => {
                       if (editingValue.trim()) {
-                        setInstructions(
+                        updateInstructions(
                           instructions.map((v, i) =>
                             i === idx ? editingValue.trim() : v
                           )
@@ -297,6 +258,7 @@ export default function RecipeForm({ onAdd }: Props) {
                   <button
                     className="ml-1 text-gray-500 hover:text-gray-700"
                     title="Cancel"
+                    type="button"
                     onClick={() => {
                       setEditingIdx(null);
                       setEditingValue("");
@@ -337,7 +299,7 @@ export default function RecipeForm({ onAdd }: Props) {
                       title="Remove"
                       type="button"
                       onClick={() =>
-                        setInstructions(
+                        updateInstructions(
                           instructions.filter((_, i) => i !== idx)
                         )
                       }
@@ -363,12 +325,21 @@ export default function RecipeForm({ onAdd }: Props) {
           ))}
         </ul>
       )}
-      <button
-        type="submit"
-        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-      >
-        Add Recipe
-      </button>
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          className="px-4 py-2 bg-gray-300 rounded"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition font-semibold"
+        >
+          Save
+        </button>
+      </div>
     </form>
   );
 }
